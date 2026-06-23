@@ -1,0 +1,10 @@
+[project]
+name = "vtk-itk"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "itk>=5.4",
+    "matplotlib>=3.11.0",
+    "numpy>=2.5.0",
+    "vtk>=9.0",
+]
