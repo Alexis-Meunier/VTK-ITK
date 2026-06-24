@@ -1,0 +1,120 @@
+workflow:
+  name: 'branch: $CI_COMMIT_BRANCH | Commit: $CI_COMMIT_TITLE'
+
+stages:
+  - Code-Sanity
+
+variables:
+  UV_VERSION: "0.9"
+  PYTHON_VERSION: "3.12"
+  BASE_LAYER: slim
+  UV_LINK_MODE: copy
+
+default:
+  image: python:$PYTHON_VERSION-$BASE_LAYER
+
+# ============================================== #
+# |            Always lint the code            | #
+# ============================================== #
+linter:
+  stage: Code-Sanity
+  before_script:
+    - pip install uv
+  script:
+    - uv sync
+    - uv run ruff check src
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# type-checker:
+#   stage: Code-Sanity
+#   before_script:
+#     - pip install uv
+#     - cd backend
+#   script:
+#     - uv sync
+#     - uv run ty check src
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# pytest:
+#   stage: Code-Sanity
+#   before_script:
+#     - pip install uv
+#     - cd backend/
+#   script:
+#     - uv sync --all-extras 
+#     - uv run pytest --disable-warnings
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# # ============================================== #
+# # |         Reusable Docker template           | #
+# # ============================================== #
+# .docker-deploy:
+#   image:
+#     name: gcr.io/kaniko-project/executor:v1.23.0-debug
+#     entrypoint: [""]
+#   stage: Docker
+#   before_script:
+#     - mkdir -p /kaniko/.docker
+#     - echo "{\"auths\":{\"${CI_REGISTRY}\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
+
+
+# # ============================================== #
+# # |         Deploy docker on main only         | #
+# # ============================================== #
+# token_deploy_front:
+#   extends: .docker-deploy
+#   script:
+#     - /kaniko/executor
+#       --context "${CI_PROJECT_DIR}/frontend"
+#       --dockerfile "${CI_PROJECT_DIR}/frontend/Dockerfile"
+#       --destination "${CI_REGISTRY_IMAGE}/frontend:latest"
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#       when: manual
+#   allow_failure: true
+
+
+# token_deploy_back:
+#   extends: .docker-deploy
+#   script:
+#     - /kaniko/executor
+#       --context "${CI_PROJECT_DIR}/backend"
+#       --dockerfile "${CI_PROJECT_DIR}/backend/Dockerfile"
+#       --destination "${CI_REGISTRY_IMAGE}/backend:latest"
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#       when: on_success
+
+# # ============================================== #
+# # |    Deploy docker image manually from MRs   | #
+# # ============================================== #
+# token_deploy_manual_front:
+#   extends: .docker-deploy
+#   script:
+#     - /kaniko/executor
+#       --context "${CI_PROJECT_DIR}/frontend"
+#       --dockerfile "${CI_PROJECT_DIR}/frontend/Dockerfile"
+#       --destination "${CI_REGISTRY_IMAGE}/frontend:latest"
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+#       when: manual
+#   allow_failure: true
+
+
+# token_deploy_manual_back:
+#   extends: .docker-deploy
+#   script:
+#     - /kaniko/executor
+#       --context "${CI_PROJECT_DIR}/backend"
+#       --dockerfile "${CI_PROJECT_DIR}/backend/Dockerfile"
+#       --destination "${CI_REGISTRY_IMAGE}/backend:latest"
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+#       when: manual
+#   allow_failure: true
