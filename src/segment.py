@@ -1,7 +1,7 @@
 import itk
 
 def segment(input_filepath="data/case6_gre1.nrrd",
-         output_filepath='tumor-segmented.png', seedX=110, seedY=100, seedZ=50, lower=180, upper=255):
+         output_filepath='tumor-segmented.png', seed=[110, 100, 50], lower=180, upper=255):
     # Instantiate the reader
     input_image = itk.imread(input_filepath, pixel_type=itk.F)
 
@@ -16,9 +16,9 @@ def segment(input_filepath="data/case6_gre1.nrrd",
     connected_threshold = itk.ConnectedThresholdImageFilter[type(input_image), type(input_image)].New()
 
     # Configure filter
-    connected_threshold.SetSeed([100,110])
-    connected_threshold.SetUpper(255)
-    connected_threshold.SetLower(200)
+    connected_threshold.SetSeed(seed)
+    connected_threshold.SetUpper(upper)
+    connected_threshold.SetLower(lower)
     connected_threshold.SetInput(smoother.GetOutput())
 
     dimension = input_image.GetImageDimension()
