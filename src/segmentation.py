@@ -1,13 +1,14 @@
 import itk
 
-def tumor_segmentation(image, seed=[110, 100, 50], lower=180, upper=255):
+def tumor_segmentation(image, seed=[110, 100, 50], lower=180, upper=255, multiplier=3, iterations=5,
+                   time_step=0.125):
     image_type = type(image)
 
     smoother = itk.GradientAnisotropicDiffusionImageFilter[image_type, image_type].New()
     smoother.SetInput(image)
-    smoother.SetNumberOfIterations(5)
-    smoother.SetTimeStep(0.125)
-    smoother.SetConductanceParameter(3)
+    smoother.SetNumberOfIterations(iterations)
+    smoother.SetTimeStep(time_step)
+    smoother.SetConductanceParameter(multiplier)
     smoother.Update()
 
     # # Instantiate the filter
