@@ -1,19 +1,17 @@
 import itk
 
-def segment(input_filepath="data/case6_gre1.nrrd",
-         output_filepath='tumor-segmented.png', seed=[110, 100, 50], lower=180, upper=255):
-    # Instantiate the reader
-    input_image = itk.imread(input_filepath, pixel_type=itk.F)
+def segment(image, seed=[110, 100, 50], lower=180, upper=255):
+    image_type = type(image)
 
-    smoother = itk.GradientAnisotropicDiffusionImageFilter[type(input_image), type(input_image)].New()
-    smoother.SetInput(input_image)
+    smoother = itk.GradientAnisotropicDiffusionImageFilter[image_type, image_type].New()
+    smoother.SetInput(image)
     smoother.SetNumberOfIterations(5)
     smoother.SetTimeStep(0.125)
     smoother.SetConductanceParameter(3)
     smoother.Update()
 
     # # Instantiate the filter
-    connected_threshold = itk.ConnectedThresholdImageFilter[type(input_image), type(input_image)].New()
+    connected_threshold = itk.ConnectedThresholdImageFilter[image_type, image_type].New()
 
     # Configure filter
     connected_threshold.SetSeed(seed)
@@ -21,11 +19,10 @@ def segment(input_filepath="data/case6_gre1.nrrd",
     connected_threshold.SetLower(lower)
     connected_threshold.SetInput(smoother.GetOutput())
 
-    dimension = input_image.GetImageDimension()
+    dimension = image.GetImageDimension()
 
     # Execute pipeline
     connected_threshold.Update()
-    result = connected_threshold.GetOutput()
 
     in_type = itk.output(connected_threshold)
     output_type = itk.Image[itk.UC, dimension]
@@ -33,4 +30,4 @@ def segment(input_filepath="data/case6_gre1.nrrd",
     rescaler.SetOutputMinimum(0)
     rescaler.SetOutputMaximum(255)
 
-    itk.imwrite(rescaler, output_filepath)
+    return rescaler.GetOutputMaximum()
