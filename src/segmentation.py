@@ -1,6 +1,6 @@
 import itk
 
-def segment(image, seed=[110, 100, 50], lower=180, upper=255):
+def tumor_segmentation(image, seed=[110, 100, 50], lower=180, upper=255):
     image_type = type(image)
 
     smoother = itk.GradientAnisotropicDiffusionImageFilter[image_type, image_type].New()
