@@ -104,3 +104,16 @@ def estimate_transformation(fixed, moving):
     )
 
     return affine_transform
+
+
+def apply_transformation(moving, reference, transform, default_value: int = 0):
+    resampler = itk.ResampleImageFilter.New(
+        Input=moving,
+        Transform=transform,
+        UseReferenceImage=True,
+        ReferenceImage=reference,
+    )
+    resampler.SetInterpolator(itk.NearestNeighborInterpolateImageFunction.New(moving))
+    resampler.SetDefaultPixelValue(default_value)
+    resampler.Update()
+    return resampler.GetOutput()
