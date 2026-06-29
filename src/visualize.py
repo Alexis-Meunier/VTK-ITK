@@ -3,6 +3,52 @@ import vtk
 import os
 import numpy as np
 from vtk.util import numpy_support
+import matplotlib.pyplot as plt
+
+def plot_2d_comparison(image1, mask1_array: np.ndarray, mask2_array: np.ndarray, output_path: str):
+    """Save a 3-panel PNG: scan1+outline, scan2(registered)+outline, change map."""
+    a_img1 = itk.GetArrayFromImage(image1)
+
+    combined = mask1_array | mask2_array
+    z = int(np.argmax(combined.sum(axis=(1, 2))))
+
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5.5))
+
+    # Display 1st Tumor
+    axes[0].imshow(a_img1[z], cmap="gray", vmax=np.percentile(a_img1, 99.5))
+    axes[0].contour(mask1_array[z], colors="lime", linewidths=1.5)
+    axes[0].set_title("Scan 1 - tumor outline")
+    axes[0].axis("off")
+
+    # Display 2nd Tumor
+    axes[1].imshow(a_img1[z], cmap="gray", vmax=np.percentile(a_img1, 99.5))
+    axes[1].contour(mask2_array[z], colors="orange", linewidths=1.5)
+    axes[1].set_title("Scan 2 (registered) - tumor outline")
+    axes[1].axis("off")
+
+    # Display Both
+    axes[2].imshow(a_img1[z], cmap="gray", vmax=np.percentile(a_img1, 99.5))
+    axes[2].contour(mask1_array[z], colors="lime", linewidths=1.5)
+    axes[2].contour(mask2_array[z], colors="orange", linewidths=1.5)
+
+    only1 = mask1_array[z] & ~mask2_array[z]
+    only2 = mask2_array[z] & ~mask1_array[z]
+
+    overlay = np.zeros((*only1.shape, 4))
+    # First in blue
+    overlay[only1] = [0, 0, 1, 0.5]
+    # Second in Red
+    overlay[only2] = [1, 0, 0, 0.5]
+
+    # Display changes
+    axes[2].imshow(overlay)
+    axes[2].set_title("Change map\n(blue=regressed, red=new growth)")
+    axes[2].axis("off")
+
+    plt.tight_layout(rect=[0, 0, 1, 0.93])
+    plt.savefig(output_path, dpi=130)
+    plt.close(fig)
+    print(f"  Saved 2D comparison figure to {output_path} (slice z={z})")
 
 
 def setupCamera(renderer, imageSlice):
