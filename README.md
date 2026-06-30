@@ -9,7 +9,7 @@ To use the program, as asked by the subject, either run `uv sync` at the root of
 The arguments are as follows:
 - `--display {none,slice,comparison,volume}`: (default: 'comparison')
     - `none` will not display anything, and simply save a 2D plot to the `output/` folder
-    - `slice` will display a 2D slice of the brain and the tumor. The idea was to let the user scroll "through" the brain to see the tumor, but we had trouble setting it up.
+    - `slice` will display a 2D slice of the brain and the tumor.
     - `comparison` will display a 3D viewer with the tumor at the first timestamp in green, and the second timestamp in orange to study the change.
     - `volume` allows a viewing of the tumor with the skull a bit visible, in 3D as well.
 - `--dont-plot`: Should disable the creating of 2D plots. Otherwise, running the file will create the plots at the `output/` folder
