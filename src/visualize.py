@@ -375,3 +375,71 @@ def render_volume_raycast(image, mask_array, screenshot_path, interactive=True):
             interactor.Start()
         except Exception as e:
             print(f"  (Interactive window unavailable: {e})")
+
+def render_3d_comparison(mask1_array: np.ndarray, mask2_array: np.ndarray, screenshot_path: str, interactive: bool=True):
+    """Render both tumor surfaces overlaid in 3D (green=scan1, orange=scan2).
+
+    Always saves a screenshot. If `interactive` is True and a display is
+    available, also opens an interactive render window (rotate with the
+    mouse, press 'q' to close).
+    """
+    actor1 = _create_actor_for_renderer(mask1_array, (0.15, 0.7, 0.15))
+    actor2 = _create_actor_for_renderer(mask2_array, (0.9, 0.35, 0.0))
+
+    renderer = vtk.vtkRenderer()
+    renderer.AddActor(actor1)
+    renderer.AddActor(actor2)
+    # hardCoded background, might need to change ?
+    renderer.SetBackground(0.97, 0.97, 0.97)
+    renderer.SetUseDepthPeeling(1)
+    renderer.SetMaximumNumberOfPeels(8)
+    renderer.SetOcclusionRatio(0.0)
+
+    ren_win = vtk.vtkRenderWindow()
+    ren_win.AddRenderer(renderer)
+    ren_win.SetSize(1000, 750)
+    ren_win.SetAlphaBitPlanes(1)
+    ren_win.SetMultiSamples(0)
+
+    renderer.ResetCamera()
+    cam = renderer.GetActiveCamera()
+    cam.Azimuth(25)
+    cam.Elevation(15)
+    renderer.ResetCameraClippingRange()
+
+    # actually render the vtkRenderWindow
+    opened_onscreen = False
+    has_display = bool(os.environ.get("DISPLAY"))
+    if interactive and not has_display:
+        print("  (No DISPLAY detected - running headless, skipping interactive window, screenshot only)")
+    if interactive and has_display:
+        try:
+            ren_win.Render()
+            opened_onscreen = True
+        except Exception:
+            opened_onscreen = False
+
+    if not opened_onscreen:
+        ren_win.SetOffScreenRendering(1)
+        ren_win.Render()
+
+    w2if = vtk.vtkWindowToImageFilter()
+    w2if.SetInputBufferTypeToRGBA()
+    w2if.SetInput(ren_win)
+    w2if.Update()
+    writer = vtk.vtkPNGWriter()
+    writer.SetFileName(screenshot_path)
+    writer.SetInputConnection(w2if.GetOutputPort())
+    writer.Write()
+    print(f"  Saved 3D screenshot to {screenshot_path}")
+    print("  (green = scan 1, orange = scan 2 registered)")
+
+    if interactive and opened_onscreen:
+        try:
+            interactor = vtk.vtkRenderWindowInteractor()
+            interactor.SetRenderWindow(ren_win)
+            interactor.Initialize()
+            print("  Opening interactive 3D view - rotate with mouse, close window to continue...")
+            interactor.Start()
+        except Exception as e:
+            print(f"  (Interactive window unavailable: {e})")
