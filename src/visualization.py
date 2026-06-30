@@ -174,18 +174,7 @@ def interactive_slice_viewer(image1, mask1_array, mask2_array, screenshot_path,
     color-highlighted directly on each slice (green=scan1, orange=scan2
     registered, blended where they overlap).
 
-    This generalizes the static `plot_2d_comparison` figure (which only
-    shows one chosen slice) into something explorable: scroll the mouse
-    wheel to move through the full stack and watch the tumor outline
-    appear/disappear/change shape slice by slice - a 2D way of building up
-    a 3D mental picture without needing a full surface reconstruction.
-
-    Built the same way as the `render()` example function we were given:
-    itk image -> vtkImageData -> vtkImageSliceMapper/vtkImageSlice ->
-    vtkInteractorStyleImage in "image slicing" mode (mouse wheel = change
-    slice). The only difference is that here we feed it a pre-blended RGB
-    volume instead of the raw grayscale one, so the colored overlay moves
-    together with the slice.
+    scroll the mouse wheel to move through the full stack and watch the tumor outline
     """
     gray_u8 = _itk_to_uint8_array(image1)
     rgb = _blend_overlay(gray_u8, mask1_array.astype(bool), mask2_array.astype(bool))
@@ -198,7 +187,7 @@ def interactive_slice_viewer(image1, mask1_array, mask2_array, screenshot_path,
 
     mapper = vtk.vtkImageSliceMapper()
     mapper.SetInputData(vtk_image)
-    mapper.SetOrientation(2)  # slice along the same axis used everywhere else (numpy axis 0)
+    mapper.SetOrientation(2)
     mapper.SetSliceNumber(initial_slice)
 
     image_slice = vtk.vtkImageSlice()
@@ -259,22 +248,11 @@ def render_volume_raycast(image, mask_array, screenshot_path, interactive=True):
     is displayed as a translucent volume using a color/opacity transfer function,
     with thresholds chosen from the scan's intensity percentiles so it adapts to
     different images.
-
-    The volume is cropped around the segmented tumor (with a margin) before
-    rendering. This avoids bright skin/scalp tissue overwhelming the image,
-    making the tumor easier to distinguish from surrounding brain tissue.
-
-    The segmented tumor surface is overlaid in solid red as a visual check. Good
-    alignment between the bright volume and the segmentation indicates the tumor
-    has been correctly identified.
     """
     arr_full = itk.GetArrayFromImage(image)
     mask_bool = mask_array.astype(bool)
     spacing = tuple(image.GetSpacing())
 
-    # crop to a box around the tumor in voxels with a fixed-size margin,
-    # clipped to the array bounds. both the intensity volume and the mask
-    # are cropped with the exact same box, so they stay aligned.
     margin = 30
     zs, ys, xs = np.where(mask_bool)
     z0, z1 = max(zs.min() - margin, 0), min(zs.max() + margin + 1, arr_full.shape[0])
@@ -286,7 +264,6 @@ def render_volume_raycast(image, mask_array, screenshot_path, interactive=True):
 
     p50, p90, p97, p99 = np.percentile(arr[arr > 0], [50, 90, 97, 99])
 
-    # build the vtkImageData directly in float to preserve original intensities
     vtk_data = numpy_support.numpy_to_vtk(arr.ravel(), deep=True, array_type=vtk.VTK_FLOAT)
     vtk_image = vtk.vtkImageData()
     vtk_image.SetDimensions(arr.shape[2], arr.shape[1], arr.shape[0])
@@ -296,9 +273,9 @@ def render_volume_raycast(image, mask_array, screenshot_path, interactive=True):
     opacity_tf = vtk.vtkPiecewiseFunction()
     opacity_tf.AddPoint(0, 0.0)
     opacity_tf.AddPoint(p50, 0.0)
-    opacity_tf.AddPoint(p90, 0.03)   # normal brain tissue: barely visible, ghostly context
+    opacity_tf.AddPoint(p90, 0.03)
     opacity_tf.AddPoint(p97, 0.25)
-    opacity_tf.AddPoint(p99, 0.6)    # only the brightest (tumor-range) voxels stand out
+    opacity_tf.AddPoint(p99, 0.6)
 
     color_tf = vtk.vtkColorTransferFunction()
     color_tf.AddRGBPoint(0, 0.0, 0.0, 0.0)
@@ -320,7 +297,6 @@ def render_volume_raycast(image, mask_array, screenshot_path, interactive=True):
     volume.SetMapper(volume_mapper)
     volume.SetProperty(volume_property)
 
-    # overlay the segmented tumor surface for a direct visual cross-check
     tumor_actor = _create_actor_for_renderer(mask_crop, (0.95, 0.05, 0.05),
                                        opacity=0.85, spacing=spacing)
 
