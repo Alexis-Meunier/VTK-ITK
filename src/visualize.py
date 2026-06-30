@@ -254,3 +254,124 @@ def interactive_slice_viewer(image1, mask1_array, mask2_array, screenshot_path,
         except Exception as e:
             print(f"  (Interactive window unavailable: {e})")
 
+def render_volume_raycast(image, mask_array, screenshot_path, interactive=True):
+    """Volume ray-cast rendering of the raw MRI (not the binary mask). The brain
+    is displayed as a translucent volume using a color/opacity transfer function,
+    with thresholds chosen from the scan's intensity percentiles so it adapts to
+    different images.
+
+    The volume is cropped around the segmented tumor (with a margin) before
+    rendering. This avoids bright skin/scalp tissue overwhelming the image,
+    making the tumor easier to distinguish from surrounding brain tissue.
+
+    The segmented tumor surface is overlaid in solid red as a visual check. Good
+    alignment between the bright volume and the segmentation indicates the tumor
+    has been correctly identified.
+    """
+    arr_full = itk.GetArrayFromImage(image)
+    mask_bool = mask_array.astype(bool)
+    spacing = tuple(image.GetSpacing())
+
+    # crop to a box around the tumor in voxels with a fixed-size margin,
+    # clipped to the array bounds. both the intensity volume and the mask
+    # are cropped with the exact same box, so they stay aligned.
+    margin = 30
+    zs, ys, xs = np.where(mask_bool)
+    z0, z1 = max(zs.min() - margin, 0), min(zs.max() + margin + 1, arr_full.shape[0])
+    y0, y1 = max(ys.min() - margin, 0), min(ys.max() + margin + 1, arr_full.shape[1])
+    x0, x1 = max(xs.min() - margin, 0), min(xs.max() + margin + 1, arr_full.shape[2])
+
+    arr = arr_full[z0:z1, y0:y1, x0:x1]
+    mask_crop = mask_bool[z0:z1, y0:y1, x0:x1]
+
+    p50, p90, p97, p99 = np.percentile(arr[arr > 0], [50, 90, 97, 99])
+
+    # build the vtkImageData directly in float to preserve original intensities
+    vtk_data = numpy_support.numpy_to_vtk(arr.ravel(), deep=True, array_type=vtk.VTK_FLOAT)
+    vtk_image = vtk.vtkImageData()
+    vtk_image.SetDimensions(arr.shape[2], arr.shape[1], arr.shape[0])
+    vtk_image.SetSpacing(*spacing)
+    vtk_image.GetPointData().SetScalars(vtk_data)
+
+    opacity_tf = vtk.vtkPiecewiseFunction()
+    opacity_tf.AddPoint(0, 0.0)
+    opacity_tf.AddPoint(p50, 0.0)
+    opacity_tf.AddPoint(p90, 0.03)   # normal brain tissue: barely visible, ghostly context
+    opacity_tf.AddPoint(p97, 0.25)
+    opacity_tf.AddPoint(p99, 0.6)    # only the brightest (tumor-range) voxels stand out
+
+    color_tf = vtk.vtkColorTransferFunction()
+    color_tf.AddRGBPoint(0, 0.0, 0.0, 0.0)
+    color_tf.AddRGBPoint(p50, 0.4, 0.4, 0.45)
+    color_tf.AddRGBPoint(p90, 0.7, 0.7, 0.75)
+    color_tf.AddRGBPoint(p97, 1.0, 0.6, 0.2)
+    color_tf.AddRGBPoint(p99, 1.0, 0.1, 0.1)
+
+    volume_property = vtk.vtkVolumeProperty()
+    volume_property.SetColor(color_tf)
+    volume_property.SetScalarOpacity(opacity_tf)
+    volume_property.SetInterpolationTypeToLinear()
+    volume_property.ShadeOn()
+
+    volume_mapper = vtk.vtkSmartVolumeMapper()
+    volume_mapper.SetInputData(vtk_image)
+
+    volume = vtk.vtkVolume()
+    volume.SetMapper(volume_mapper)
+    volume.SetProperty(volume_property)
+
+    # overlay the segmented tumor surface for a direct visual cross-check
+    tumor_actor = _create_actor_for_renderer(mask_crop, (0.95, 0.05, 0.05),
+                                       opacity=0.85, spacing=spacing)
+
+    renderer = vtk.vtkRenderer()
+    renderer.AddVolume(volume)
+    renderer.AddActor(tumor_actor)
+    renderer.SetBackground(0.08, 0.08, 0.1)
+
+    ren_win = vtk.vtkRenderWindow()
+    ren_win.AddRenderer(renderer)
+    ren_win.SetSize(1000, 750)
+
+    renderer.ResetCamera()
+    cam = renderer.GetActiveCamera()
+    cam.Azimuth(20)
+    cam.Elevation(10)
+    renderer.ResetCameraClippingRange()
+
+    has_display = bool(os.environ.get("DISPLAY"))
+    opened_onscreen = False
+    if interactive and not has_display:
+        print("  (No DISPLAY detected - skipping interactive volume view, screenshot only)")
+    if interactive and has_display:
+        try:
+            ren_win.Render()
+            opened_onscreen = True
+        except Exception:
+            opened_onscreen = False
+
+    if not opened_onscreen:
+        ren_win.SetOffScreenRendering(1)
+        ren_win.Render()
+
+    w2if = vtk.vtkWindowToImageFilter()
+    w2if.SetInputBufferTypeToRGBA()
+    w2if.SetInput(ren_win)
+    w2if.Update()
+    writer = vtk.vtkPNGWriter()
+    writer.SetFileName(screenshot_path)
+    writer.SetInputConnection(w2if.GetOutputPort())
+    writer.Write()
+    print(f"  Saved volume ray-cast screenshot to {screenshot_path}")
+    print("  (translucent grey = head/brain, red = segmented tumor surface)")
+
+    if interactive and opened_onscreen:
+        try:
+            interactor = vtk.vtkRenderWindowInteractor()
+            interactor.SetRenderWindow(ren_win)
+            interactor.SetInteractorStyle(vtk.vtkInteractorStyleTrackballCamera())
+            interactor.Initialize()
+            print("  Opening volume view - rotate with mouse, close window to continue...")
+            interactor.Start()
+        except Exception as e:
+            print(f"  (Interactive window unavailable: {e})")
