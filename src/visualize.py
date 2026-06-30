@@ -1,309 +1,8 @@
 import itk
 import vtk
 import os
-
-def affichage_lisse():
-    # Read the data from a SLC file
-    filePath = os.path.join(os.path.dirname(__file__), "../Data/cow.vtk")
-    reader = vtk.vtkPolyDataReader()
-    reader.SetFileName(filePath)
-
-    # Triangulate
-    tri = vtk.vtkTriangleFilter()
-    tri.SetInputConnection(reader.GetOutputPort())
-
-    # Decimate
-    deci = vtk.vtkDecimatePro()
-    deci.SetInputConnection(tri.GetOutputPort())
-    deci.SetTargetReduction(0.3)
-    deci.PreserveTopologyOn()
-    deci.SetMaximumError(0.0002)
-
-    # Smooth
-    smooth = vtk.vtkSmoothPolyDataFilter()
-    smooth.SetInputConnection(deci.GetOutputPort())
-    smooth.SetNumberOfIterations(25)
-    smooth.SetRelaxationFactor(0.05)
-
-    normals = vtk.vtkPolyDataNormals()
-    normals.SetInputConnection(smooth.GetOutputPort())
-
-    # Rendering pipeline
-    mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputConnection(normals.GetOutputPort())
-    mapper.ScalarVisibilityOff()
-
-    actor = vtk.vtkActor()
-    actor.SetMapper(mapper)
-    actor.GetProperty().SetColor(255 / 255, 192 / 255, 203 / 255)
-
-    renderer = vtk.vtkRenderer()
-    renderer.AddActor(actor)
-
-    render_window = vtk.vtkRenderWindow()
-    render_window.AddRenderer(renderer)
-
-    render_window_interactor = vtk.vtkRenderWindowInteractor()
-    render_window_interactor.SetRenderWindow(render_window)
-    render_window_interactor.SetInteractorStyle(
-        vtk.vtkInteractorStyleTrackballCamera()) # More "natural" interaction style
-
-    render_window.Render()
-    render_window_interactor.Start()
-
-
-def create_triangle(
-    p1: tuple[float, float, float]=(0.0, 0.0, 0.0),
-    p2: tuple[float, float, float]=(1.0, 0.0, 0.0),
-    p3: tuple[float, float, float]=(0.0, 1.0, 0.0),
-):
-    points = vtk.vtkPoints()
-    points.SetNumberOfPoints(3)
-    points.SetPoint(0, *p1)
-    points.SetPoint(1, *p2)
-    points.SetPoint(2, *p3)
-
-    cells = vtk.vtkCellArray()
-    cells.InsertNextCell(3)
-    cells.InsertCellPoint(0)
-    cells.InsertCellPoint(1)
-    cells.InsertCellPoint(2)
-
-    polydata = vtk.vtkPolyData()
-    polydata.SetPoints(points)
-    polydata.SetPolys(cells)
-
-    # Rendering pipeline
-    mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputData(polydata)
-
-    actor = vtk.vtkActor()
-    actor.SetMapper(mapper)
-
-    renderer = vtk.vtkRenderer()
-    renderer.AddActor(actor)
-
-    render_window = vtk.vtkRenderWindow()
-    render_window.AddRenderer(renderer)
-
-    render_window_interactor = vtk.vtkRenderWindowInteractor()
-    render_window_interactor.SetRenderWindow(render_window)
-    render_window_interactor.SetInteractorStyle(
-        vtk.vtkInteractorStyleTrackballCamera()) # More "natural" interaction style
-
-    render_window.Render()
-    render_window_interactor.Start()
-
-
-def rendu_volumique():
-    # Create the renderer, render window, and interactor
-    renderer = vtk.vtkRenderer()
-    render_window = vtk.vtkRenderWindow()
-    render_window.AddRenderer(renderer)
-
-    iren = vtk.vtkRenderWindowInteractor()
-    iren.SetRenderWindow(render_window)
-    iren.SetInteractorStyle(
-        vtk.vtkInteractorStyleTrackballCamera()) # More "natural" interaction style
-
-    # Read the data from a SLC file
-    filePath = os.path.join(os.path.dirname(__file__), "../Data/poship.slc")
-    reader = vtk.vtkSLCReader()
-    reader.SetFileName(filePath)
-
-    # Create transfer functions for opacity and color
-    opacity_transfer_function = vtk.vtkPiecewiseFunction()
-    opacity_transfer_function.AddPoint(20, 0.0)
-    opacity_transfer_function.AddPoint(255, 0.3)
-
-    color_transfer_function = vtk.vtkColorTransferFunction()
-    color_transfer_function.AddRGBPoint(0.0, 0.0, 0.0, 0.0)
-    color_transfer_function.AddRGBPoint(64.0, 1.0, 0.0, 0.0)
-    color_transfer_function.AddRGBPoint(128.0, 0.0, 0.0, 1.0)
-    color_transfer_function.AddRGBPoint(192.0, 0.0, 1.0, 0.0)
-    color_transfer_function.AddRGBPoint(255.0, 0.0, 0.2, 0.0)
-
-    # Create properties, mappers, volume actors, and ray cast function
-    volume_property = vtk.vtkVolumeProperty()
-    volume_property.SetColor(color_transfer_function)
-    volume_property.SetScalarOpacity(opacity_transfer_function)
-
-    # Create the volume mapper
-    volume_mapper = vtk.vtkSmartVolumeMapper()
-    volume_mapper.SetInputConnection(reader.GetOutputPort())
-
-    # Create the volume and set the mapper and property
-    volume = vtk.vtkVolume()
-    volume.SetMapper(volume_mapper)
-    volume.SetProperty(volume_property)
-
-    # Add this volume to the renderer and get a closer look
-    renderer.AddActor(volume)
-    renderer.ResetCamera()
-    renderer.ResetCameraClippingRange()
-    renderer.SetBackground(0.1, 0.1, 0.3)
-
-
-    render_window.Render()
-
-    # Interact with the data at 3 frames per second
-    iren.SetDesiredUpdateRate(5.0)
-    # iren.SetStillUpdateRate(0.001)
-    iren.Start()
-
-
-def image3D_contour():
-    # You'll need to read the file
-    reader = vtk.vtkXMLImageDataReader()
-
-    # You'll need a render window to show it in
-    renwin = vtk.vtkRenderWindow()
-
-    # You'll need a renderer in the render window
-    renderer = vtk.vtkRenderer()
-
-    # Set the file name on the reader to filename.c_str()
-    filePath = os.path.join(os.path.dirname(__file__), "../Data/head.vti")
-    reader.SetFileName(filePath)
-
-    # Put in renderer in the render window
-    renwin.AddRenderer(renderer)
-
-    # Create the interactor
-    interactor = vtk.vtkRenderWindowInteractor()
-    interactor.SetInteractorStyle(vtk.vtkInteractorStyleTrackballCamera())
-
-    # Set the interactor on the render window
-    renwin.SetInteractor(interactor)
-
-    # Create a vtk.vtkContourFilter to do the isocontouring
-    # Set the input to the output of the reader
-    # Set the value to 135
-    contour = vtk.vtkContourFilter()
-    contour.SetInputConnection(reader.GetOutputPort())
-    contour.SetValue(0, 135)
-
-    # This is the vtk.vtkPolyDataMapper
-    contourMapper = vtk.vtkPolyDataMapper()
-
-    # Connect the mapper to the contour filter
-    # Remember to turn ScalarVisibilityOff()
-    contourMapper.SetInputConnection(contour.GetOutputPort())
-    contourMapper.ScalarVisibilityOff()
-
-    # This is the vtk.vtkActor
-    contourActor = vtk.vtkActor()
-
-    # Set the mapper
-    contourActor.SetMapper(contourMapper)
-
-    # Add the actor
-    renderer.AddActor(contourActor)
-
-    # Render and start the interactor
-    renwin.Render()
-    interactor.SetInteractorStyle(
-        vtk.vtkInteractorStyleTrackballCamera()) # More "natural" interaction style
-    interactor.Start()
-
-
-def image3D_volumique():
-    # You'll need to read the file
-    reader = vtk.vtkXMLImageDataReader()
-
-    # You'll need a render window to show it in
-    renwin = vtk.vtkRenderWindow()
-
-    # You'll need a renderer in the render window
-    renderer = vtk.vtkRenderer()
-
-    # Set the file name on the reader to filename.c_str()
-    filePath = os.path.join(os.path.dirname(__file__), "../Data/head.vti")
-    reader.SetFileName(filePath)
-
-    # Put in renderer in the render window
-    renwin.AddRenderer(renderer)
-
-    # Create the interactor
-    interactor = vtk.vtkRenderWindowInteractor()
-    interactor.SetInteractorStyle(vtk.vtkInteractorStyleTrackballCamera())
-
-    # Set the interactor on the render window
-    renwin.SetInteractor(interactor)
-
-    # Create a vtk.vtkContourFilter to do the isocontouring
-    # Set the input to the output of the reader
-    # Set the value to 135
-    contour = vtk.vtkContourFilter()
-    contour.SetInputConnection(reader.GetOutputPort())
-    contour.SetValue(0, 135)
-
-    # This is the vtk.vtkPolyDataMapper
-    contourMapper = vtk.vtkPolyDataMapper()
-
-    # Connect the mapper to the contour filter
-    # Remember to turn ScalarVisibilityOff()
-    contourMapper.SetInputConnection(contour.GetOutputPort())
-    contourMapper.ScalarVisibilityOff()
-
-    # This is the vtk.vtkActor
-    contourActor = vtk.vtkActor()
-
-    # Set the mapper
-    contourActor.SetMapper(contourMapper)
-
-    # Add the actor
-    renderer.AddActor(contourActor)
-
-    # Create an opacity transfer function to map
-    # scalar value to opacity
-    opacityFun = vtk.vtkPiecewiseFunction()
-
-    # Set a mapping going from 0.0 opacity at 90, up to 0.2 at 100,
-    # and back down to 0.0 at 120.
-    opacityFun.AddPoint(0.0, 0.0)
-    opacityFun.AddPoint(90.0, 0.0)
-    opacityFun.AddPoint(100.0, 0.2)
-    opacityFun.AddPoint(120.0, 0.0)
-
-    # Create a color transfer function for the mapping of scalar
-    # value into color
-    colorFun = vtk.vtkColorTransferFunction()
-
-    # Set the color to a constant value, you might
-    # want to try (0.8, 0.4, 0.2)
-    colorFun.AddRGBPoint(0.0, .8, .4, .2)
-    colorFun.AddRGBPoint(255.0, .8, .4, .2)
-
-    # Create a volume property
-    # Set the opacity and color. Change interpolation
-    # to linear for a more pleasing image
-    property = vtk.vtkVolumeProperty()
-    property.SetScalarOpacity(opacityFun)
-    property.SetColor(colorFun)
-    property.SetInterpolationTypeToLinear()
-
-    # Create the volume mapper
-    mapper = vtk.vtkSmartVolumeMapper()
-
-    # Set the input to the output of the reader
-    mapper.SetInputConnection(reader.GetOutputPort())
-
-    # Create the volume
-    volume = vtk.vtkVolume()
-
-    # Set the property and the mapper
-    volume.SetProperty(property)
-    volume.SetMapper(mapper)
-
-    # Add the volume to the renderer
-    renderer.AddVolume(volume)
-
-    # Render and start the interactor
-    renwin.Render()
-    interactor.SetInteractorStyle(
-        vtk.vtkInteractorStyleTrackballCamera()) # More "natural" interaction style
-    interactor.Start()
+import numpy as np
+from vtk.util import numpy_support
 
 
 def setupCamera(renderer, imageSlice):
@@ -334,35 +33,133 @@ def setupCamera(renderer, imageSlice):
 
     renderer.ResetCameraClippingRange()
 
-def render(itkImage):
-    """ Renders an itk Image with VTK """
+def _itk_to_uint8_array(image, vmax_percentile=99.5):
+    """Window an itk float image to 0-255 for color blending / volume rendering."""
+    arr = itk.GetArrayFromImage(image)
+    vmax = np.percentile(arr[arr > 0], vmax_percentile)
+    arr8 = np.clip(arr, 0, vmax) / vmax * 255.0
+    return arr8.astype(np.uint8)
 
-    source = itk.vtk_image_from_image(itkImage)
 
-    renderWindow = vtk.vtkRenderWindow()
+def _blend_overlay(gray_u8, mask1, mask2, color1=(40, 200, 40), color2=(230, 90, 0),
+                    alpha=0.45, alpha_overlap=0.55):
+    """Blend a grayscale volume with two colored, semi-transparent mask overlays.
+
+    Uses the same color convention as render_3d_comparison: green = scan 1
+    only, orange = scan 2 (registered) only, and a blended color where both
+    masks agree (spatial overlap).
+    """
+    rgb = np.repeat(gray_u8[..., None], 3, axis=-1).astype(np.float32)
+    only1 = mask1 & ~mask2
+    only2 = mask2 & ~mask1
+    overlap = mask1 & mask2
+
+    c1 = np.array(color1, dtype=np.float32)
+    c2 = np.array(color2, dtype=np.float32)
+    c_overlap = (c1 + c2) / 2
+
+    rgb[only1] = (1 - alpha) * rgb[only1] + alpha * c1
+    rgb[only2] = (1 - alpha) * rgb[only2] + alpha * c2
+    rgb[overlap] = (1 - alpha_overlap) * rgb[overlap] + alpha_overlap * c_overlap
+
+    return np.clip(rgb, 0, 255).astype(np.uint8)
+
+
+def _numpy_rgb_to_vtk_image(rgb_arr, spacing=(1, 1, 1)):
+    """rgb_arr: (z, y, x, 3) uint8 -> vtkImageData with 3-component scalars."""
+    flat = rgb_arr.reshape(-1, 3)
+    vtk_data = numpy_support.numpy_to_vtk(flat, deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
+    vtk_data.SetNumberOfComponents(3)
+    img = vtk.vtkImageData()
+    img.SetDimensions(rgb_arr.shape[2], rgb_arr.shape[1], rgb_arr.shape[0])  # x, y, z
+    img.SetSpacing(*spacing)
+    img.GetPointData().SetScalars(vtk_data)
+    return img
+
+
+def interactive_slice_viewer(image1, mask1_array, mask2_array, screenshot_path,
+                              interactive=True, initial_slice=None):
+    """Scrollable 2D slice-by-slice view of scan 1, with both tumor masks
+    color-highlighted directly on each slice (green=scan1, orange=scan2
+    registered, blended where they overlap).
+
+    This generalizes the static `plot_2d_comparison` figure (which only
+    shows one chosen slice) into something explorable: scroll the mouse
+    wheel to move through the full stack and watch the tumor outline
+    appear/disappear/change shape slice by slice - a 2D way of building up
+    a 3D mental picture without needing a full surface reconstruction.
+
+    Built the same way as the `render()` example function we were given:
+    itk image -> vtkImageData -> vtkImageSliceMapper/vtkImageSlice ->
+    vtkInteractorStyleImage in "image slicing" mode (mouse wheel = change
+    slice). The only difference is that here we feed it a pre-blended RGB
+    volume instead of the raw grayscale one, so the colored overlay moves
+    together with the slice.
+    """
+    gray_u8 = _itk_to_uint8_array(image1)
+    rgb = _blend_overlay(gray_u8, mask1_array.astype(bool), mask2_array.astype(bool))
+    spacing = tuple(image1.GetSpacing())
+    vtk_image = _numpy_rgb_to_vtk_image(rgb, spacing)
+
+    if initial_slice is None:
+        combined = mask1_array | mask2_array
+        initial_slice = int(np.argmax(combined.sum(axis=(1, 2))))
+
+    mapper = vtk.vtkImageSliceMapper()
+    mapper.SetInputData(vtk_image)
+    mapper.SetOrientation(2)  # slice along the same axis used everywhere else (numpy axis 0)
+    mapper.SetSliceNumber(initial_slice)
+
+    image_slice = vtk.vtkImageSlice()
+    image_slice.SetMapper(mapper)
 
     renderer = vtk.vtkRenderer()
-    renderer.GetActiveCamera().ParallelProjectionOn()
+    renderer.AddActor(image_slice)
+    renderer.SetBackground(0.05, 0.05, 0.05)
 
-    renderWindow.AddRenderer(renderer)
-    renderWindowInteractor = vtk.vtkRenderWindowInteractor()
-    renderWindowInteractor.SetRenderWindow(renderWindow)# More "natural" interaction style
+    ren_win = vtk.vtkRenderWindow()
+    ren_win.AddRenderer(renderer)
+    ren_win.SetSize(800, 800)
 
-    imageStyle = vtk.vtkInteractorStyleImage()
-    imageStyle.SetInteractionModeToImageSlicing()
-    renderWindowInteractor.SetInteractorStyle(imageStyle) # Interactor style for images, no rotation. Left click changes the window level of the image
+    image_style = vtk.vtkInteractorStyleImage()
+    image_style.SetInteractionModeToImageSlicing()
 
-    imageSliceMapper = vtk.vtkImageSliceMapper()
-    imageSliceMapper.SetInputData(source)
-    imageSliceMapper.SetSliceAtFocalPoint(True)
-    imageSliceMapper.SetSliceFacesCamera(True)
-    imageSliceMapper.StreamingOn()
-    imageSlice = vtk.vtkImageSlice()
-    imageSlice.SetMapper(imageSliceMapper)
-    renderer.AddActor(imageSlice)
+    setupCamera(renderer, image_slice)
 
-    setupCamera(renderer, imageSlice)
+    has_display = bool(os.environ.get("DISPLAY"))
+    opened_onscreen = False
+    if interactive and not has_display:
+        print("  (No DISPLAY detected - skipping interactive slice viewer, screenshot only)")
+    if interactive and has_display:
+        try:
+            ren_win.Render()
+            opened_onscreen = True
+        except Exception:
+            opened_onscreen = False
 
-    renderWindow.Render()
-    renderWindowInteractor.Start()
+    if not opened_onscreen:
+        ren_win.SetOffScreenRendering(1)
+        ren_win.Render()
+
+    w2if = vtk.vtkWindowToImageFilter()
+    w2if.SetInputBufferTypeToRGB()
+    w2if.SetInput(ren_win)
+    w2if.Update()
+    writer = vtk.vtkPNGWriter()
+    writer.SetFileName(screenshot_path)
+    writer.SetInputConnection(w2if.GetOutputPort())
+    writer.Write()
+    print(f"  Saved slice-viewer screenshot to {screenshot_path} (slice {initial_slice})")
+
+    if interactive and opened_onscreen:
+        try:
+            interactor = vtk.vtkRenderWindowInteractor()
+            interactor.SetRenderWindow(ren_win)
+            interactor.SetInteractorStyle(image_style)
+            interactor.Initialize()
+            print("  Opening slice viewer - scroll to change slice, drag to adjust "
+                  "window/level, close window to continue...")
+            interactor.Start()
+        except Exception as e:
+            print(f"  (Interactive window unavailable: {e})")
 
