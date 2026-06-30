@@ -57,7 +57,7 @@ def main():
     print_summary(metrics)
 
     print("[5/5] Generating visualizations...")
-    if args.plot or args.display == 'none':
+    if args.dont_plot or args.display == 'none':
         plot_2d_comparison(
             fixed, metrics["mask1_array"], metrics["mask2_array"],
             f"{OUTPUT_DIR}/2d_comparison.png",
