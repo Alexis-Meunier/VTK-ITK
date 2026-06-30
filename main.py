@@ -31,8 +31,8 @@ SCAN1_PATH = "data/case6_gre1.nrrd"
 SCAN2_PATH = "data/case6_gre2.nrrd"
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--display', choices=['none', 'slice', 'comparison', 'volume'], default='slice', help='Type of visualization to show')
-parser.add_argument('--plot', action='store_true')
+parser.add_argument('--display', choices=['none', 'slice', 'comparison', 'volume'], default='comparison', help='Type of visualization to show')
+parser.add_argument('--dont-plot', action='store_true')
 
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
