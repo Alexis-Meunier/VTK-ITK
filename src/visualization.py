@@ -167,6 +167,27 @@ def _numpy_rgb_to_vtk_image(rgb_arr, spacing=(1, 1, 1)):
     img.GetPointData().SetScalars(vtk_data)
     return img
 
+class _SliceScrollStyle(vtk.vtkInteractorStyleImage):
+    def __init__(self, mapper, ren_win):
+        self._mapper = mapper
+        self._ren_win = ren_win
+        self.AddObserver("MouseWheelForwardEvent", self._on_forward)
+        self.AddObserver("MouseWheelBackwardEvent", self._on_backward)
+
+    def _on_forward(self, obj, event):
+        self._step(+1)
+
+    def _on_backward(self, obj, event):
+        self._step(-1)
+
+    def _step(self, delta):
+        m = self._mapper
+        cur = m.GetSliceNumber()
+        lo, hi = m.GetSliceNumberMinValue(), m.GetSliceNumberMaxValue()
+        new = max(lo, min(hi, cur + delta))
+        if new != cur:
+            m.SetSliceNumber(new)
+            self._ren_win.Render()
 
 def interactive_slice_viewer(image1, mask1_array, mask2_array, screenshot_path,
                               interactive=True, initial_slice=None):
@@ -201,9 +222,8 @@ def interactive_slice_viewer(image1, mask1_array, mask2_array, screenshot_path,
     ren_win.AddRenderer(renderer)
     ren_win.SetSize(800, 800)
 
-    image_style = vtk.vtkInteractorStyleImage()
-    image_style.SetInteractionModeToImageSlicing()
-
+    image_style = _SliceScrollStyle(mapper, ren_win)
+    
     setupCamera(renderer, image_slice)
 
     has_display = bool(os.environ.get("DISPLAY"))
