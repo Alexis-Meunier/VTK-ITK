@@ -51,6 +51,51 @@ def plot_2d_comparison(image1, mask1_array: np.ndarray, mask2_array: np.ndarray,
     print(f"  Saved 2D comparison figure to {output_path} (slice z={z})")
 
 
+
+def image_numpy_to_vtk(arr: np.ndarray, spacing: tuple[float, float, float]=(1, 1, 1)):
+    vtk_data = numpy_support.numpy_to_vtk(arr.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
+    img = vtk.vtkImageData()
+    img.SetDimensions(arr.shape[2], arr.shape[1], arr.shape[0])
+    img.SetSpacing(spacing[0], spacing[1], spacing[2])
+    img.GetPointData().SetScalars(vtk_data)
+    return img
+
+def _create_actor_for_renderer(
+    mask_array: np.ndarray,
+    color: tuple[float, float, float],
+    opacity: float=0.55,
+    spacing: tuple[float, float, float]=(1, 1, 1)
+):
+    img = image_numpy_to_vtk(mask_array.astype(np.uint8), spacing)
+
+    mc = vtk.vtkMarchingCubes()
+    mc.SetInputData(img)
+    mc.SetValue(0, 0.5)
+
+    # Smooth out the result (optional, might remove if too much)
+    smoother = vtk.vtkWindowedSincPolyDataFilter()
+    smoother.SetInputConnection(mc.GetOutputPort())
+    smoother.SetNumberOfIterations(20)
+    smoother.SetPassBand(0.1)
+    smoother.BoundarySmoothingOn()
+
+    # Compute normals
+    normals = vtk.vtkPolyDataNormals()
+    normals.SetInputConnection(smoother.GetOutputPort())
+
+    # Compute Objects
+    mapper = vtk.vtkPolyDataMapper()
+    mapper.SetInputConnection(normals.GetOutputPort())
+    mapper.ScalarVisibilityOff()
+
+    # Create Actor
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper)
+    actor.GetProperty().SetColor(color[0], color[1], color[2])
+    actor.GetProperty().SetOpacity(opacity)
+    actor.GetProperty().SetSpecular(0.3)
+    return actor
+
 def setupCamera(renderer, imageSlice):
     """Configure active camera of renderer by fitting the data"""
 
