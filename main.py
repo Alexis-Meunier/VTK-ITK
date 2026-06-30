@@ -1,5 +1,6 @@
 import os
 import itk
+import argparse
 
 from src.registration import (
     estimate_transformation,
@@ -19,7 +20,9 @@ from src.analysis import (
 
 from src.visualization import (
     plot_2d_comparison,
-    render_3d_comparison
+    render_3d_comparison,
+    interactive_slice_viewer,
+    render_volume_raycast,
 )
 
 OUTPUT_DIR = "output"
@@ -27,9 +30,13 @@ OUTPUT_DIR = "output"
 SCAN1_PATH = "data/case6_gre1.nrrd"
 SCAN2_PATH = "data/case6_gre2.nrrd"
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--display', choices=['none', 'slice', 'comparison', 'volume'], default='slice', help='Type of visualization to show')
+parser.add_argument('--plot', action='store_true')
 
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    args = parser.parse_args()
 
     print("[1/5] Loading scans...")
     fixed = itk.imread(SCAN1_PATH, itk.F)
@@ -50,15 +57,32 @@ def main():
     print_summary(metrics)
 
     print("[5/5] Generating visualizations...")
-    plot_2d_comparison(
-        fixed, metrics["mask1_array"], metrics["mask2_array"],
-        f"{OUTPUT_DIR}/2d_comparison.png",
-    )
-    render_3d_comparison(
-        metrics["mask1_array"], metrics["mask2_array"],
-        f"{OUTPUT_DIR}/3d_render.png",
-        interactive=True,
-    )
+    if args.plot or args.display == 'none':
+        plot_2d_comparison(
+            fixed, metrics["mask1_array"], metrics["mask2_array"],
+            f"{OUTPUT_DIR}/2d_comparison.png",
+        )
+    if args.display == 'slice':
+        interactive_slice_viewer(
+            fixed,
+            metrics["mask1_array"],
+            metrics["mask2_array"],
+            f"{OUTPUT_DIR}/slice_viewer.png"
+        )
+    elif args.display == 'volume':
+        render_volume_raycast(
+            fixed,
+            metrics["mask1_array"],
+            f"{OUTPUT_DIR}/volume_render.png",
+            interactive=True,
+        )
+    elif args.display == 'comparison':
+        render_3d_comparison(
+            metrics["mask1_array"],
+            metrics["mask2_array"],
+            f"{OUTPUT_DIR}/3d_render.png",
+            interactive=True,
+        )
 
     print("\nDone. Results saved in:", OUTPUT_DIR)
 
