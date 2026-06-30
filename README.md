@@ -21,3 +21,7 @@ The project was setup by alexis.meunier. Then anis.feore worked on the registrat
 ## TODOs
 
 We hoped to implement an automatic segmentation algorithm, but due to lack of time, as well as having multiple ongoing project, we only could implement the semi-automatic algorithm, with hardcoded seed coordinates.
+
+## IMPORTANT NOTICE
+
+The project was handled using GitLab. That is why you can see a `.gitlab-ci.yml` file at the root of the project. Thus all the issues, Merge Requests, and Milestones we created can not be seen.
