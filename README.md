@@ -111,6 +111,10 @@ Volume scan 2 (registered): 3.88 cm3
 Absolute change           : -2.17 cm3
 Relative change           : -35.9 %
 Dice overlap (spatial)    : 0.588
+IoU                       : 0.417
+New growth                : +0.96 cm3
+Regressed tissue          : -3.13 cm3
+Centroid shift            : 1.87 mm
 ```
 
 **Interpretation.** Between the two timepoints the tumor **regressed**, shrinking from
